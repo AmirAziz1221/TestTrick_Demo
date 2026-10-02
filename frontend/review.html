@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TestTrick | Review</title>
+<style>
+:root{--bg:#eef1f8;--surface:#fff;--ink:#16233b;--muted:#5d6b85;--line:#dde3ef;--brand:#3b47d6;--brand-soft:#e8eaff;--ok:#0f7d59;--ok-soft:#dff5ec;--warn:#c22f3f;--warn-soft:#fde8ea;--amber:#a86a00;--amber-soft:#fff2d6}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font-family:system-ui,-apple-system,"Segoe UI",sans-serif;line-height:1.45}
+header{background:var(--surface);border-bottom:1px solid var(--line);padding:14px 24px;display:flex;gap:16px;align-items:center}
+.brand{font-weight:800;font-size:20px}.brand span{color:var(--brand)}header .sp{flex:1}
+main{display:grid;grid-template-columns:320px minmax(0,1fr);gap:20px;max-width:1400px;margin:20px auto;padding:0 20px}
+@media (max-width:900px){main{grid-template-columns:1fr}}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:16px}
+.item{display:block;width:100%;text-align:left;background:#fff;border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin-bottom:8px;cursor:pointer;font:inherit}
+.item:hover,.item.on{border-color:var(--brand);background:var(--brand-soft)}.item small{color:var(--muted);display:block}
+.badge{display:inline-block;padding:2px 10px;border-radius:99px;font-weight:700;font-size:12px}
+.low{background:var(--ok-soft);color:var(--ok)}.medium{background:var(--amber-soft);color:var(--amber)}.high{background:var(--warn-soft);color:var(--warn)}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;margin:12px 0}.stat{background:var(--bg);border-radius:12px;padding:10px}.stat b{display:block;font-size:22px}.stat span{font-size:12px;color:var(--muted)}
+.tl{position:relative;height:30px;background:var(--bg);border-radius:8px;margin:8px 0 18px}.tl i{position:absolute;top:4px;bottom:4px;min-width:5px;border-radius:4px;opacity:.9}
+i.low{background:#7bc6a4}i.medium{background:#e0a020}i.high{background:var(--warn)}
+.ev{border:1px solid var(--line);border-radius:14px;padding:14px;margin-bottom:14px}.ev h3{margin:0 0 2px;font-size:16px}.ev p{margin:0 0 10px;color:var(--muted);font-size:13px}
+.vids{display:grid;grid-template-columns:1fr 1fr;gap:10px}@media (max-width:700px){.vids{grid-template-columns:1fr}}
+video{width:100%;border-radius:10px;background:#0e1526}.cap{font-size:12px;color:var(--muted);margin-top:2px}
+input{padding:8px 10px;border:1px solid var(--line);border-radius:8px}button.go{padding:8px 14px;border:0;border-radius:8px;background:var(--brand);color:#fff;font:inherit;cursor:pointer}
+.tl i{cursor:pointer}.chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}.chip{border:1px solid var(--line);background:#fff;border-radius:99px;padding:5px 11px;font:inherit;font-size:12.5px;cursor:pointer}.chip:hover{border-color:var(--brand);background:var(--brand-soft)}
+a{color:var(--brand)}
+</style></head><body>
+<header><div class="brand">Test<span>Trick</span> Review</div><div class="sp"></div>
+<span id="tokBox" hidden><input id="tok" type="password" placeholder="Reviewer token"> <button class="go" onclick="saveTok()">Open</button></span></header>
+<main>
+  <aside class="card"><b>Sessions</b><div id="list" style="margin-top:10px">Loading…</div></aside>
+  <section class="card" id="detail"><p style="color:var(--muted)">Select a session to see only the flagged moments.</p></section>
+</main>
+<script>
+const $ = id => document.getElementById(id), tok = () => sessionStorage.getItem("tt") || "";
+const q = u => u + (u.includes("?") ? "&" : "?") + "token=" + encodeURIComponent(tok());
+const mmss = s => String(Math.floor(s / 60)).padStart(2, "0") + ":" + String(Math.floor(s % 60)).padStart(2, "0");
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const NAME = {absent:"Face not visible",partial:"Face partly visible",multiple:"More than one person",camera_blocked:"Camera blocked",looking_away:"Looking away from the screen",looking_down_no_input:"Looking down without typing",looking_up_long:"Looking up for a long time",fullscreen_exit:"Left full screen",tab_hidden:"Left the test window",screen_share_stopped:"Screen sharing stopped",multiple_monitors:"Several monitors",paste:"Paste attempted",copy:"Copy attempted",right_click:"Right-click"};
+function saveTok() { sessionStorage.setItem("tt", $("tok").value); load(); }
+async function api(u) { const r = await fetch(q(u)); if (r.status === 401) { $("tokBox").hidden = false; throw new Error("token"); } return r.json(); }
+async function load() {
+  try { const l = await api("/api/sessions"); $("tokBox").hidden = true;
+    $("list").innerHTML = l.length ? l.map(s => `<button class="item" data-id="${s.session_id}"><b>${esc(s.candidate_id)}</b> <span class="badge ${s.risk_level}">${s.risk_level}</span><small>${esc(s.started_at)} · ${s.warning_count} warnings</small></button>`).join("") : "No sessions yet.";
+    document.querySelectorAll(".item").forEach(b => b.onclick = () => show(b.dataset.id, b));
+  } catch (e) { $("list").textContent = "Enter the reviewer token."; }
+}
+
+function fullHtml(r) {
+  const rc = r.recordings || {}, ks = ["camera", "screen"].filter(k => rc[k]);
+  if (!ks.length) return "";
+  const chips = r.events.map(e => `<button class="chip" data-jump="${e.start}">#${e.id} ${esc(NAME[e.type] || e.type)} · ${mmss(e.start)}</button>`).join("");
+  const prep = r.full_status === "processing" ? " · still being prepared, reload in a moment" : "";
+  return `<div class="ev"><div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap"><b>Full recordings</b>
+    <button class="go" id="fullBtn">Watch full camera and screen</button>
+    <label style="font-size:13px"><input type="checkbox" id="syncCb" checked> play both together</label></div>
+    <p style="margin:6px 0 0">Opening a full recording is logged for privacy. Use the clips below when they are enough.${prep}</p>
+    <div id="fullBox" hidden><div class="vids" style="margin-top:10px">${ks.map(k =>
+      `<div><video id="f_${k}" controls preload="none" data-kind="${k}" data-off="${rc[k].offset_s || 0}"></video><div class="cap">${k} (full recording)</div></div>`).join("")}</div>
+      ${chips ? `<div style="margin-top:10px;font-size:13px;color:var(--muted)">Jump to a flagged moment (starts 3 s earlier):</div><div class="chips">${chips}</div>` : ""}</div></div>`;
+}
+function bindFull(r, id) {
+  const vids = ["camera", "screen"].map(k => $("f_" + k)).filter(Boolean);
+  let lock = false;
+  const load = () => { $("fullBox").hidden = false; vids.forEach(v => { if (!v.src) v.src = q(`/media/${id}/${r.recordings[v.dataset.kind].file}`); }); };
+  const seekTo = (v, t) => { const go = () => { v.currentTime = Math.max(0, t - 3 - (+v.dataset.off)); v.play().catch(() => {}); };
+    v.readyState >= 1 ? go() : v.addEventListener("loadedmetadata", go, {once: true}); };
+  const jump = t => { if (!vids.length) return; load(); lock = true; vids.forEach(v => seekTo(v, t)); setTimeout(() => lock = false, 800);
+    $("fullBox").scrollIntoView({behavior: "smooth", block: "center"}); };
+  if ($("fullBtn")) $("fullBtn").onclick = load;
+  const sync = (src, fn) => { if ($("syncCb") && $("syncCb").checked && !lock) { lock = true; vids.filter(v => v !== src).forEach(fn); setTimeout(() => lock = false, 80); } };
+  vids.forEach(v => {
+    v.onplay = () => sync(v, o => o.play().catch(() => {}));
+    v.onpause = () => sync(v, o => o.pause());
+    v.onseeked = () => sync(v, o => { const t = v.currentTime + (+v.dataset.off) - (+o.dataset.off); if (Math.abs(o.currentTime - t) > 0.4) o.currentTime = Math.max(0, t); });
+  });
+  document.querySelectorAll("[data-jump]").forEach(b => b.onclick = () => jump(+b.dataset.jump));
+}
+async function show(id, btn) {
+  document.querySelectorAll(".item").forEach(b => b.classList.remove("on")); btn && btn.classList.add("on");
+  const r = await api(`/api/sessions/${id}/report`), D = r.duration_s || 1;
+  const tl = r.events.map(e => `<i class="${e.severity}" data-jump="${e.start}" style="left:${e.start / D * 100}%;width:${Math.max((e.duration || 0) / D * 100, 0.4)}%" title="${esc(NAME[e.type] || e.type)}"></i>`).join("");
+  const evs = r.events.map(e => `<div class="ev"><h3>#${e.id} ${esc(NAME[e.type] || e.type)} <span class="badge ${e.severity}">${e.severity}</span></h3>
+    <p>${mmss(e.start)} to ${mmss(e.end ?? e.start)} (${e.duration}s) · ${esc(e.start_iso || "")}<br>${esc(e.message)}</p>
+    ${e.clips ? `<div class="vids">${["camera", "screen"].filter(k => e.clips[k]).map(k => `<div><video controls preload="metadata" src="${q(`/media/${id}/${e.clips[k]}`)}"></video><div class="cap">${k} clip</div></div>`).join("")}</div>`
+      : `<p>${r.clips_status === "processing" ? "Clips are being prepared… reload in a moment." : "No clip available for this event."}</p>`}</div>`).join("");
+  $("detail").innerHTML = `<h2 style="margin:0">${esc(r.candidate_id)} <span class="badge ${r.risk_level}">risk ${r.risk_level} (${r.risk_score})</span></h2>
+    <small style="color:var(--muted)">Test ${esc(r.test_id)} · started ${esc(r.started_at)} · ended by ${esc(r.ended_by)} · clips: ${esc(r.clips_status)}</small>
+    <div class="stats"><div class="stat"><b>${r.warning_count}</b><span>Warnings</span></div><div class="stat"><b>${mmss(r.duration_s)}</b><span>Test length</span></div>
+    <div class="stat"><b>${Math.round(r.typing_seconds)}s</b><span>Looking down while typing (allowed)</span></div><div class="stat"><b>${Math.round(r.thinking_seconds)}s</b><span>Looking up (thinking)</span></div>
+    <div class="stat"><b>${r.input_activity.key}/${r.input_activity.mouse}</b><span>Key / mouse actions</span></div></div>
+    <b>Timeline</b><div class="tl">${tl}</div>${fullHtml(r)}${evs || "<p>No warnings. Nothing to review.</p>"}
+    <p style="font-size:13px;color:var(--muted)">These are signals for human review, not an automatic verdict.</p>`;
+  bindFull(r, id);
+}
+load();
+</script></body></html>

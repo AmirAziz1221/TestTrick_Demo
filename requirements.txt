@@ -1,0 +1,8 @@
+fastapi>=0.115 # FastAPI: used to build the backend API and HTTP endpoints
+uvicorn[standard]>=0.29 # Uvicorn: runs the FastAPI application as a web server
+mediapipe>=0.10.14 # MediaPipe: used for face detection, facial landmarks, and face blendshapes
+opencv-python-headless>=4.9 # OpenCV: used for image/video processing without requiring a graphical desktop environment
+numpy>=1.26 # NumPy: used for numerical operations, image arrays, and facial landmark coordinates
+imageio-ffmpeg>=0.5 # ImageIO-FFmpeg: provides/bundles FFmpeg, used to process and cut evidence video clips
+pytest>=8.0 # Pytest: used to write and run automated tests for the application
+httpx>=0.27 # HTTPX: used for making HTTP requests, mainly for testing FastAPI API endpoints

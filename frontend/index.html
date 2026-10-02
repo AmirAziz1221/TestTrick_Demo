@@ -1,0 +1,272 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TestTrick | Assessment</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#eef1f8;--surface:#fff;--ink:#16233b;--muted:#5d6b85;--line:#dde3ef;--brand:#3b47d6;--brand-soft:#e8eaff;--ok:#0f7d59;--ok-soft:#dff5ec;--warn:#c22f3f;--warn-soft:#fde8ea;--amber:#a86a00;--amber-soft:#fff2d6;--stage:#0e1526}
+*{box-sizing:border-box}html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:"Plus Jakarta Sans",system-ui,sans-serif;line-height:1.5}
+button{font:inherit;cursor:pointer}:focus-visible{outline:3px solid var(--brand);outline-offset:2px}[hidden]{display:none!important}
+.brand{font-weight:800;font-size:21px;letter-spacing:-.02em}.brand span{color:var(--brand)}
+.btn{border:0;border-radius:12px;padding:14px 26px;font-weight:700;font-size:16px;background:var(--brand);color:#fff}
+.btn:hover{background:#2f39b9}.btn.ghost{background:var(--brand-soft);color:var(--brand)}.btn.ghost:hover{background:#d9dcff}
+.btn.full{width:100%}.btn[disabled]{background:#c8cfe3;color:#fff;cursor:not-allowed}
+.card{background:var(--surface);border-radius:22px;padding:30px;border:1px solid var(--line)}
+h1{font-size:28px;line-height:1.2;letter-spacing:-.02em;margin:14px 0 8px}p.sub{color:var(--muted);margin:0 0 16px}
+/* setup */
+#setup{min-height:100%;display:grid;grid-template-columns:minmax(0,1.5fr) minmax(320px,1fr);gap:28px;max-width:1280px;margin:0 auto;padding:32px 24px;align-items:center}
+@media (max-width:900px){#setup{grid-template-columns:1fr}}
+.stage{background:var(--stage);border-radius:22px;padding:10px;box-shadow:0 0 0 4px var(--line)}
+.frame{position:relative;border-radius:14px;overflow:hidden;aspect-ratio:16/10;background:#050a16}
+video{width:100%;height:100%;object-fit:cover;transform:scaleX(-1);display:block}
+.idle{position:absolute;inset:0;display:grid;place-items:center;text-align:center;color:#b6c1da;padding:24px}
+.checks{list-style:none;padding:0;margin:0 0 16px;display:grid;gap:9px}
+.checks li{display:flex;gap:10px;color:var(--muted);font-size:14.5px}
+.checks i{flex:none;width:22px;height:22px;border-radius:50%;background:var(--brand-soft);color:var(--brand);display:grid;place-items:center;font-style:normal;font-size:13px;font-weight:800}
+.consent{display:flex;gap:10px;align-items:flex-start;font-size:14px;background:var(--amber-soft);color:#5c3b00;border-radius:12px;padding:12px;margin-bottom:14px}
+.consent input{margin-top:4px;width:18px;height:18px;flex:none}
+.stack{display:grid;gap:10px}.btn.done{background:var(--ok-soft);color:var(--ok)}
+/* exam */
+#exam{position:fixed;inset:0;display:flex;flex-direction:column;background:var(--bg);transition:box-shadow .25s}
+#exam.warn{box-shadow:inset 0 0 0 6px var(--warn)}
+#warnBar{position:fixed;top:0;left:0;right:0;z-index:50;background:var(--warn);color:#fff;padding:16px 24px;text-align:center;font-weight:800;font-size:clamp(17px,2vw,24px);display:flex;justify-content:center;gap:12px;transform:translateY(-110%);transition:transform .25s;box-shadow:0 6px 24px rgba(194,47,63,.4)}
+#warnBar.show{transform:none}@media (prefers-reduced-motion:reduce){#warnBar{transition:none}}
+.top{display:flex;align-items:center;gap:20px;padding:16px 32px;background:var(--surface);border-bottom:1px solid var(--line)}
+.top .ttl{color:var(--muted);border-left:1px solid var(--line);padding-left:20px}.top .sp{flex:1}
+.timer{font-variant-numeric:tabular-nums;font-weight:800;font-size:20px;background:var(--brand-soft);color:var(--brand);padding:6px 16px;border-radius:999px}
+.timer.low{background:var(--warn-soft);color:var(--warn)}
+.progress{height:6px;background:var(--brand-soft)}.progress div{height:100%;background:var(--brand);width:0;transition:width .3s}
+.qwrap{flex:1;overflow:auto;display:flex;justify-content:center;padding:clamp(20px,5vh,56px) 32px}.q{width:100%;max-width:860px}
+.qno{color:var(--brand);font-weight:700;font-size:15px;letter-spacing:.04em;text-transform:uppercase}
+.q h2{font-size:clamp(24px,3.2vw,38px);line-height:1.25;letter-spacing:-.02em;margin:10px 0 28px}
+.opt{display:flex;gap:16px;align-items:center;width:100%;text-align:left;background:#fff;border:2px solid var(--line);border-radius:16px;padding:18px 20px;margin-bottom:12px;font-size:clamp(16px,1.6vw,20px);font-weight:500;color:var(--ink)}
+.opt:hover{border-color:#b9c0f5}.opt .k{flex:none;width:34px;height:34px;border-radius:10px;background:var(--bg);display:grid;place-items:center;font-weight:700;font-size:14px}
+.opt.sel{border-color:var(--brand);background:var(--brand-soft)}.opt.sel .k{background:var(--brand);color:#fff}
+.foot{display:flex;justify-content:center;gap:14px;padding:16px 32px 22px;background:var(--surface);border-top:1px solid var(--line)}.foot .btn{min-width:170px}
+#pip{position:fixed;right:20px;bottom:96px;width:clamp(230px,20vw,320px);border-radius:16px;overflow:hidden;background:var(--surface);z-index:20;box-shadow:0 0 0 3px var(--ok),0 8px 24px rgba(0,0,0,.25);transition:box-shadow .25s}
+#pip.cal{box-shadow:0 0 0 3px #e0a020,0 8px 24px rgba(0,0,0,.25)}#pip.warn{box-shadow:0 0 0 3px var(--warn),0 8px 24px rgba(0,0,0,.25)}
+#pip .frame{border-radius:0;aspect-ratio:4/3;background:#050a16}
+#pipInfo{padding:10px 14px 12px}
+#pipStatus{display:flex;align-items:center;gap:8px;font-size:15px;font-weight:700;color:var(--ink)}
+.pd{width:10px;height:10px;border-radius:50%;background:var(--ok);flex:none}
+#pip.warn .pd{background:var(--warn)}#pip.cal .pd{background:#e0a020}
+#dbg{display:grid;grid-template-columns:1fr auto;gap:4px 12px;margin-top:10px;padding-top:10px;border-top:1px solid var(--line);font-size:13px;color:var(--muted)}
+#dbg b{color:var(--ink);font-variant-numeric:tabular-nums;text-align:right}
+/* calibration + overlays */
+#calib{position:fixed;inset:0;z-index:80;background:var(--stage);color:#fff}
+#dot{position:absolute;left:50%;top:50%;width:34px;height:34px;margin:-17px 0 0 -17px;border-radius:50%;background:#ffd45c;box-shadow:0 0 0 10px rgba(255,212,92,.25);transition:left .5s,top .5s}
+#calMsg{position:absolute;left:0;right:0;top:50%;transform:translateY(60px);text-align:center;font-size:18px;font-weight:600;padding:0 24px;pointer-events:none}
+#calBtn{position:absolute;left:50%;top:60%;transform:translateX(-50%)}
+.gate{position:fixed;inset:0;z-index:100;background:rgba(14,21,38,.92);display:grid;place-items:center;padding:24px}.gate .card{max-width:460px;text-align:center}
+/* result */
+#result{max-width:780px;margin:0 auto;padding:40px 24px}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:0 0 18px}.stat{background:var(--bg);border-radius:14px;padding:14px}
+.stat b{display:block;font-size:24px}.stat span{font-size:13px;color:var(--muted)}
+.badge{display:inline-block;padding:6px 12px;border-radius:999px;font-weight:700;font-size:14px;margin-bottom:14px}
+.badge.low{background:var(--ok-soft);color:var(--ok)}.badge.medium{background:var(--amber-soft);color:var(--amber)}.badge.high{background:var(--warn-soft);color:var(--warn)}
+table{width:100%;border-collapse:collapse;font-size:14px}th,td{text-align:left;padding:9px 6px;border-bottom:1px solid var(--line)}th{color:var(--muted)}
+</style></head><body>
+
+<div id="setup">
+  <section class="stage"><div class="frame"><video id="cam" autoplay muted playsinline></video>
+    <div class="idle" id="idle"><div>Your camera preview will appear here</div></div></div></section>
+  <div class="card">
+    <div class="brand">Test<span>Trick</span></div>
+    <h1>Before you begin</h1>
+    <p class="sub">Frontend Developer Assessment. The test runs in full screen.</p>
+    <ul class="checks">
+      <li><i>1</i>Sit in a well-lit spot, face the camera, and stay on your own.</li>
+      <li><i>2</i>Keep your eyes on the screen. Typing while looking at the keyboard is fine.</li>
+      <li><i>3</i>You will follow a dot for about 20 seconds so we can learn where your screen is.</li>
+    </ul>
+    <label class="consent"><input type="checkbox" id="consent"><span>I agree that my <b>camera and screen are recorded</b> during this test. Only the short clips around flagged moments are reviewed by the hiring team.</span></label>
+    <div class="stack">
+      <button class="btn ghost" id="camBtn">1. Turn on camera</button>
+      <button class="btn ghost" id="scrBtn">2. Share your entire screen</button>
+      <button class="btn" id="startBtn" disabled>3. Start test in full screen</button>
+    </div>
+  </div>
+</div>
+
+<div id="exam" hidden>
+  <div id="warnBar" role="alert" aria-live="assertive"><span>⚠</span><span id="warnTxt"></span></div>
+  <div class="top"><div class="brand">Test<span>Trick</span></div><div class="ttl">Frontend Developer Assessment</div><div class="sp"></div><div class="timer" id="timer">10:00</div></div>
+  <div class="progress"><div id="bar"></div></div>
+  <div class="qwrap"><div class="q"><div class="qno" id="qno"></div><h2 id="qtext"></h2><div id="opts"></div></div></div>
+  <div class="foot"><button class="btn ghost" id="prev">Back</button><button class="btn" id="next">Next question</button></div>
+  <div id="pip"><div class="frame" id="pipHome"></div><div id="pipInfo"><div id="pipStatus"><i class="pd"></i><span id="pipTxt">Starting camera check…</span></div><div id="dbg" hidden></div></div></div>
+</div>
+
+<div id="calib" hidden><div id="dot"></div><div id="calMsg"></div><button class="btn" id="calBtn" hidden>Try calibration again</button></div>
+<div class="gate" id="gate" hidden><div class="card"><h1 style="margin-top:0">Please return to full screen</h1><p class="sub">The test must stay in full screen. Your timer is still running.</p><button class="btn full" id="gateBtn">Return to full screen</button></div></div>
+<div class="gate" id="wait" hidden><div class="card"><h1 style="margin-top:0">Saving your test…</h1><p class="sub">Uploading the recordings. Please keep this window open.</p></div></div>
+
+<div id="result" hidden><div class="card">
+  <div class="brand">Test<span>Trick</span></div><h1>Test submitted</h1>
+  <p class="sub">Thank you. Summary of the monitoring record:</p>
+  <div id="badge"></div><div class="stats" id="rstats"></div><div id="events"></div>
+  <p class="sub" style="margin-top:14px">Short evidence clips are prepared in the background. Reviewers open them in <a href="/review.html">the review page</a>.</p>
+  <button class="btn full" onclick="location.reload()">Start again</button>
+</div></div>
+<canvas id="c" hidden></canvas>
+
+<script>
+const $ = id => document.getElementById(id), sleep = ms => new Promise(r => setTimeout(r, ms));
+const P = new URLSearchParams(location.search), DEBUG = P.has("debug");
+const QUESTIONS = [
+  {q:"Which HTTP status code means the page was not found?", o:["200","404","500","301"]},
+  {q:"What does SQL stand for?", o:["Structured Query Language","Simple Quick Logic","Stored Query Layer","Sequential Query List"]},
+  {q:"Which CSS property changes the space outside an element's border?", o:["padding","margin","gap","outline"]},
+  {q:"In JavaScript, which keyword declares a block-scoped variable?", o:["var","let","function","static"]}];
+const LABEL = {absent:"Face not visible",partial:"Face partly visible",multiple:"More than one person",camera_blocked:"Camera blocked",looking_away:"Looking away",looking_down_no_input:"Looking down, no typing",looking_up_long:"Looking up for long",fullscreen_exit:"Left full screen",tab_hidden:"Left test window",screen_share_stopped:"Screen sharing stopped",multiple_monitors:"Several monitors",paste:"Paste",copy:"Copy",right_click:"Right-click"};
+const CAL = [[50,50],[10,12],[90,12],[90,88],[10,88],[50,88],[50,12]];   // dots the candidate follows
+let ws, sid, stream, scrStream, camRec, scrRec, sendTimer, clock, calibDone, t0perf, inflight = false, running = false, finished = false, idx = 0, answers = [], remaining = 600;
+const send = o => ws && ws.readyState === 1 && ws.send(JSON.stringify(o));
+const evt = (type, state = "instant") => running && send({t:"evt", type, state});
+
+function ready() { $("startBtn").disabled = !(stream && scrStream && $("consent").checked); }
+$("consent").onchange = ready;
+$("camBtn").onclick = async () => {
+  try { stream = await navigator.mediaDevices.getUserMedia({video:{width:{ideal:1280},height:{ideal:720},facingMode:"user"},audio:false}); }
+  catch (e) { return alert("We couldn't open your camera: " + e.message); }
+  $("cam").srcObject = stream; $("idle").hidden = true; $("camBtn").textContent = "✔ Camera is on"; $("camBtn").classList.add("done"); ready();
+};
+$("scrBtn").onclick = async () => {
+  try { scrStream = await navigator.mediaDevices.getDisplayMedia({video:{displaySurface:"monitor",frameRate:{ideal:10,max:15},width:{max:1920}},audio:false}); }
+  catch (e) { return alert("Screen sharing is required for this test."); }
+  const t = scrStream.getVideoTracks()[0], surf = t.getSettings().displaySurface;
+  if (surf && surf !== "monitor") { t.stop(); scrStream = null; return alert("Please choose “Entire screen”, not a window or tab."); }
+  t.onended = () => { if (running) { send({t:"evt",type:"screen_share_stopped"}); finish("screen_share_stopped"); } };
+  $("scrBtn").textContent = "✔ Screen is shared"; $("scrBtn").classList.add("done"); ready();
+};
+
+$("startBtn").onclick = async () => {
+  $("startBtn").disabled = true;
+  try { await document.documentElement.requestFullscreen(); } catch (e) {}
+  const r = await fetch("/api/sessions", {method:"POST", headers:{"Content-Type":"application/json"},
+    body: JSON.stringify({candidate_id: P.get("candidate") || "demo-candidate", test_id: P.get("test") || "demo-test", consent: true})});
+  if (!r.ok) { alert("Could not start the session."); return location.reload(); }
+  sid = (await r.json()).session_id; t0perf = performance.now();
+  camRec = record(stream, "camera", 700000); scrRec = record(scrStream, "screen", 1500000);
+  ws = new WebSocket(`${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/ws/${sid}`);
+  ws.onmessage = e => { const d = JSON.parse(e.data); if (d.type === "calibration") calibDone && calibDone(d); else { inflight = false; render(d); } };
+  ws.onopen = async () => {
+    $("setup").hidden = true; $("exam").hidden = false; $("pipHome").appendChild($("cam")); $("cam").play();
+    if (window.screen.isExtended) send({t:"evt", type:"multiple_monitors"});
+    await calibrate();
+    running = true; showQuestion(); clock = setInterval(tick, 1000);
+  };
+};
+
+/* ---- recording: 5-second chunks are uploaded in order; the server appends them to one file ---- */
+function record(src, kind, bps) {
+  const mime = ["video/webm;codecs=vp8", "video/webm"].find(m => MediaRecorder.isTypeSupported(m));
+  const rec = new MediaRecorder(new MediaStream(src.getVideoTracks()), {mimeType: mime, videoBitsPerSecond: bps});
+  const offset = Math.round(performance.now() - t0perf);   // ms between session start and recording start
+  let seq = 0, chain = Promise.resolve();
+  rec.ondataavailable = e => {
+    if (!e.data.size) return; const n = seq++, blob = e.data;
+    chain = chain.then(async () => { for (let i = 0; i < 4; i++) {
+      try { const r = await fetch(`/api/sessions/${sid}/upload/${kind}?seq=${n}`, {method:"POST", headers:{"X-Rec-Offset": offset}, body: blob}); if (r.ok) return; } catch (e) {}
+      await sleep(800 * (i + 1)); } });
+  };
+  rec.start(5000);
+  return {stop: () => new Promise(res => { rec.onstop = () => chain.then(res); rec.state !== "inactive" ? rec.stop() : res(); })};
+}
+
+/* ---- calibration: follow 7 dots so the server learns what "looking at the screen" means for this person ---- */
+async function calibrate() {
+  const dot = $("dot"); $("calib").hidden = false;
+  while (true) {
+    $("calBtn").hidden = true; dot.style.left = "50%"; dot.style.top = "50%";
+    $("calMsg").textContent = "Get ready: follow the dot with your eyes and keep your head still."; await sleep(2500);
+    clearInterval(sendTimer); sendTimer = setInterval(sendFrame, 300); send({t:"calib_start"});
+    for (let i = 0; i < CAL.length; i++) {
+      dot.style.left = CAL[i][0] + "%"; dot.style.top = CAL[i][1] + "%";
+      $("calMsg").textContent = `Follow the dot (${i + 1}/${CAL.length})`; send({t:"calib_point", i}); await sleep(2400);
+    }
+    const res = await new Promise(r => { calibDone = r; send({t:"calib_end"}); });
+    clearInterval(sendTimer); sendTimer = setInterval(sendFrame, 700);
+    if (res.ok) { $("calib").hidden = true; return; }
+    $("calMsg").textContent = res.message; $("calBtn").hidden = false; await new Promise(r => $("calBtn").onclick = r);
+  }
+}
+
+function sendFrame() {
+  if (!ws || ws.readyState !== 1 || inflight) return;     // drop frames if the server is behind
+  const v = $("cam"); if (!v.videoWidth) return;
+  const c = $("c"); c.width = 480; c.height = Math.round(480 * v.videoHeight / v.videoWidth);
+  c.getContext("2d").drawImage(v, 0, 0, c.width, c.height); inflight = true;
+  c.toBlob(b => b ? ws.send(b) : (inflight = false), "image/jpeg", 0.7);
+}
+
+const ZONE = {screen:"On screen", down:"Looking down", up:"Looking up", side:"Looking sideways"};
+function render(d) {
+  if (d.type === "error") return;
+  const bar = $("warnBar"), ex = $("exam"), pip = $("pip");
+  if (d.warning) { $("warnTxt").textContent = d.message; bar.classList.add("show"); ex.classList.add("warn"); pip.className = "warn"; $("pipTxt").textContent = LABEL[d.issue] || "Warning"; }
+  else { bar.classList.remove("show"); ex.classList.remove("warn"); pip.className = ""; $("pipTxt").textContent = d.typing ? "Typing detected" : "Camera check OK"; }
+  const x = d.debug; $("dbg").hidden = !(DEBUG && x);
+  if (DEBUG && x) $("dbg").innerHTML = [["Looking", (ZONE[d.zone] || "-") + (d.typing ? " + typing" : "")], ["Eyes sideways", x.h.toFixed(2)], ["Eyes down", x.v.toFixed(2)],
+    ["Head turn", x.yaw.toFixed(1) + "°"], ["Head tilt", x.pitch.toFixed(1) + "°"], ["Server time", d.inference_ms + " ms"]].map(([a, b]) => `<span>${a}</span><b>${b}</b>`).join("");
+}
+
+/* ---- keyboard / mouse activity (only THAT something happened is sent, never which key) ---- */
+let lastAct = 0;
+const act = k => { const n = performance.now(); if (running && n - lastAct > 250) { lastAct = n; send({t:"act", k}); } };
+document.addEventListener("keydown", () => act("key"));
+["mousemove","mousedown","wheel","touchstart"].forEach(e => document.addEventListener(e, () => act("mouse"), {passive:true}));
+
+/* ---- integrity events ---- */
+let away = false;
+const setAway = a => { if (running && a !== away) { away = a; evt("tab_hidden", a ? "start" : "end"); } };
+window.addEventListener("blur", () => setAway(true)); window.addEventListener("focus", () => setAway(false));
+document.addEventListener("visibilitychange", () => setAway(document.hidden));
+document.addEventListener("fullscreenchange", () => {
+  if (!running) return; const fs = !!document.fullscreenElement;
+  evt("fullscreen_exit", fs ? "end" : "start"); $("gate").hidden = fs;
+});
+$("gateBtn").onclick = () => document.documentElement.requestFullscreen().catch(() => {});
+["copy","paste"].forEach(t => document.addEventListener(t, () => evt(t)));
+document.addEventListener("cut", () => evt("copy"));
+document.addEventListener("contextmenu", () => evt("right_click"));
+
+/* ---- questions ---- */
+function showQuestion() {
+  const item = QUESTIONS[idx];
+  $("qno").textContent = `Question ${idx + 1} of ${QUESTIONS.length}`; $("bar").style.width = ((idx + 1) / QUESTIONS.length * 100) + "%";
+  $("qtext").textContent = item.q; $("opts").innerHTML = "";
+  item.o.forEach((text, i) => {
+    const b = document.createElement("button"); b.className = "opt" + (answers[idx] === i ? " sel" : "");
+    b.innerHTML = `<span class="k">${"ABCD"[i]}</span><span></span>`; b.lastChild.textContent = text;
+    b.onclick = () => { answers[idx] = i; showQuestion(); }; $("opts").appendChild(b);
+  });
+  $("prev").disabled = idx === 0; $("next").textContent = idx === QUESTIONS.length - 1 ? "Submit test" : "Next question";
+}
+$("prev").onclick = () => { if (idx > 0) { idx--; showQuestion(); } };
+$("next").onclick = () => { if (idx < QUESTIONS.length - 1) { idx++; showQuestion(); } else finish(); };
+function tick() {
+  remaining--; $("timer").textContent = String(Math.floor(remaining / 60)).padStart(2, "0") + ":" + String(remaining % 60).padStart(2, "0");
+  $("timer").classList.toggle("low", remaining <= 60); if (remaining <= 0) finish("time_up");
+}
+
+/* ---- finish: stop recorders, wait for uploads, then close the session ---- */
+async function finish(reason = "submitted") {
+  if (finished) return; finished = true; running = false;
+  clearInterval(sendTimer); clearInterval(clock); $("gate").hidden = true; $("wait").hidden = false;
+  try { ws.close(); } catch (e) {}
+  await Promise.all([camRec && camRec.stop(), scrRec && scrRec.stop()]);
+  [stream, scrStream].forEach(s => s && s.getTracks().forEach(t => t.stop()));
+  if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+  const rep = await (await fetch(`/api/sessions/${sid}/finish?reason=${reason}`, {method:"POST"})).json();
+  $("wait").hidden = true; $("exam").hidden = true; $("result").hidden = false;
+  $("badge").innerHTML = `<span class="badge ${rep.risk_level}">Review priority: ${rep.risk_level}</span>`;
+  $("rstats").innerHTML = [[rep.warning_count,"Warnings"],[rep.risk_score,"Risk score"],[Math.round(rep.typing_seconds)+"s","Typing while looking down"],[Math.round(rep.duration_s/60*10)/10+" min","Duration"]]
+    .map(([b, s]) => `<div class="stat"><b>${b}</b><span>${s}</span></div>`).join("");
+  $("events").innerHTML = rep.events.length
+    ? "<table><tr><th>Issue</th><th>Starts</th><th>Lasted</th></tr>" + rep.events.map(e => `<tr><td>${LABEL[e.type] || e.type}</td><td>${e.start}s</td><td>${e.duration}s</td></tr>`).join("") + "</table>"
+    : "<p class='sub'>No warnings were recorded.</p>";
+}
+</script></body></html>
