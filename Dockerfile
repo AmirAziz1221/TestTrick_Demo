@@ -7,6 +7,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 WORKDIR /app
 
+# Fail the BUILD (not the running server) if the graphics libs MediaPipe needs are missing
+RUN ldconfig -p | grep -E "libEGL.so.1|libGLESv2.so.2"
+
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
@@ -20,4 +23,4 @@ ENV PYTHONUNBUFFERED=1
 
 # ONE worker on purpose: sessions are kept in memory (no Redis yet).
 # Railway provides $PORT automatically.
-CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-800
+CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000} --workers 1"]
