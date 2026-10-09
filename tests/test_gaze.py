@@ -34,3 +34,43 @@ def test_calibration_rejects_poor_data():
         c.add(0, f())
     box, msg = c.build(Settings())
     assert box is None and "calibration points" in msg
+
+
+# ---- automatic screen fit (replaces calibration dots) ----
+from app.analysis import SessionMonitor
+from app.gaze import estimate_box
+from .helpers import blend, run
+
+SCREEN = {"w": 1920, "h": 1080, "dpr": 1}
+
+
+def test_box_grows_with_screen_size_and_shrinks_with_distance():
+    big = estimate_box({"w": 2560, "h": 1440, "dpr": 1}, 0.55)
+    small = estimate_box({"w": 1366, "h": 768, "dpr": 1}, 0.55)
+    far = estimate_box({"w": 2560, "h": 1440, "dpr": 1}, 0.9)
+    assert big.h_hi > small.h_hi and big.v_hi > small.v_hi
+    assert far.h_hi < big.h_hi
+    assert classify_zone(f(), big) == "screen"
+    assert classify_zone(f(v=0.6), big) == "down"
+    assert classify_zone(f(h=0.9), big) == "side"
+
+
+def test_auto_fit_learns_screen_without_dots_then_warns_when_eyes_leave():
+    m = SessionMonitor(Settings())
+    m.set_screen(SCREEN)
+    out, t = run(m, 3, 0.0, bl=blend(h=0.9))              # eyes off-screen while fitting: not judged yet
+    assert out["fitting"] and not out["warning"]
+    out, t = run(m, 6, t, bl=blend(h=0.05, v=0.02))       # reading the screen
+    assert not out["fitting"] and m.screen_fit["status"] == "fitted"
+    assert not out["warning"]
+    out, t = run(m, 3, t, bl=blend(h=0.9))                # eyes go out of the screen
+    assert out["warning"] and out["issue"] == "looking_away"
+    assert "outside the screen" in out["message"]
+
+
+def test_auto_fit_flags_looking_down_without_typing():
+    m = SessionMonitor(Settings())
+    m.set_screen(SCREEN)
+    _, t = run(m, 7, 0.0, bl=blend(h=0.0, v=0.0))
+    out, t = run(m, 3, t, bl=blend(v=0.7))
+    assert out["warning"] and out["issue"] == "looking_down_no_input"
