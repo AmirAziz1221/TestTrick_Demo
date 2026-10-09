@@ -65,6 +65,8 @@ async def _text_message(ws: WebSocket, mon: SessionMonitor, now: float, text: st
         mon.add_activity(now, d.get("k", "key"))
     elif t == "evt":
         mon.client_event(now, d.get("type", ""), d.get("state", "instant"))
+    elif t == "screen_info":
+        mon.set_screen(d)
     elif t == "calib_start":
         mon.calibration_start()
     elif t == "calib_point":

@@ -220,3 +220,39 @@ def classify_zone(f: Features, box: ScreenBox) -> str | None:
     # If one or more boundaries were exceeded, return the strongest zone.
     # If no boundary was exceeded, classify the person as looking at the screen.
     
+
+# ---------------------------------------------------------------------------------------------
+# Automatic screen fit (replaces the 7-dot calibration): the screen area is estimated from the
+# size of the candidate's screen (sent by the browser) and how far they sit from the camera.
+# ---------------------------------------------------------------------------------------------
+def screen_size_m(info: dict) -> tuple[float, float]:
+    """Approximate physical screen width/height in metres from the browser's screen size.
+    Laptops with display scaling (dpr >= 1.25) pack more CSS pixels per inch than desktop monitors."""
+    w = float(info.get("w") or 1920)
+    h = float(info.get("h") or 1080)
+    dpr = float(info.get("dpr") or 1)
+    css_per_inch = 96.0 if dpr < 1.25 else 115.0
+    width_in = min(max(w / css_per_inch, 10.0), 32.0)
+    height_in = width_in * h / w
+    return width_in * 0.0254, height_in * 0.0254
+
+
+def estimate_distance_m(face_width_norm: float, cam_hfov_deg: float = 65.0, face_width_m: float = 0.145) -> float:
+    """Camera-to-face distance from how wide the face looks in the frame (pinhole camera model)."""
+    half = math.tan(math.radians(cam_hfov_deg) / 2)
+    d = face_width_m / (max(face_width_norm, 1e-3) * 2 * half)
+    return min(max(d, 0.30), 0.90)
+
+
+def estimate_box(info: dict, distance_m: float = 0.55, center=(0.0, 0.0, 0.0, 0.0),
+                 eye_per_deg: float = 0.012, eye_margin: float = 0.10, head_tol: float = 10.0) -> ScreenBox:
+    """ScreenBox for a screen of this size seen from this distance.
+    center = (h, v, yaw, pitch) the candidate shows when looking at the middle of the screen."""
+    sw, sh = screen_size_m(info)
+    half_w = math.degrees(math.atan((sw / 2) / distance_m))      # screen half-width as a viewing angle
+    half_h = math.degrees(math.atan((sh / 2) / distance_m))
+    ch, cv, cyaw, cpitch = center
+    eye_w, eye_h = half_w * eye_per_deg + eye_margin, half_h * eye_per_deg + eye_margin
+    head_w, head_h = 0.5 * half_w + head_tol, 0.5 * half_h + head_tol
+    return ScreenBox(ch - eye_w, ch + eye_w, cv - eye_h, cv + eye_h,
+                     cyaw - head_w, cyaw + head_w, cpitch - head_h, cpitch + head_h)

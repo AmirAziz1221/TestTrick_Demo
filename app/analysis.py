@@ -13,8 +13,9 @@ Times are seconds since the session started, so they line up with the recordings
 from __future__ import annotations
 from dataclasses import dataclass
 from datetime import timedelta
+import statistics
 import numpy as np
-from .gaze import Calibrator, ScreenBox, classify_zone, features
+from .gaze import Calibrator, ScreenBox, classify_zone, estimate_box, estimate_distance_m, features
 
 
 @dataclass
@@ -22,7 +23,7 @@ class Settings:
     face_warn_s: float = 3.0
     away_warn_s: float = 2.0
     down_warn_s: float = 2.0
-    up_warn_s: float = 5.0
+    up_warn_s: float = 12.0
     activity_window_s: float = 3.0
     clear_frames: int = 2
     eye_margin: float = 0.10
@@ -31,6 +32,10 @@ class Settings:
     blink_t: float = 0.5
     pitch_sign: float = 1.0
     dark_t: float = 30.0
+    autofit_s: float = 6.0
+    default_distance_m: float = 0.55
+    cam_hfov_deg: float = 65.0
+    eye_per_deg: float = 0.012
 
 
 # issue -> (message shown to the candidate, severity, category, Settings field with its timer)
@@ -39,7 +44,7 @@ ISSUES = {
     "partial": ("Your face is only partly visible. Please centre it in the frame.", "medium", "face", "face_warn_s"),
     "multiple": ("More than one person is visible. Only the candidate may be on camera.", "high", "face", "face_warn_s"),
     "camera_blocked": ("Your camera looks blocked or too dark. Please fix it.", "high", "face", "face_warn_s"),
-    "looking_away": ("Please keep your eyes on the screen.", "medium", "gaze", "away_warn_s"),
+    "looking_away": ("Your eyes are outside the screen area. Please look at the screen.", "medium", "gaze", "away_warn_s"),
     "looking_down_no_input": ("Please look at the screen. Looking down without typing is flagged.", "high", "gaze", "down_warn_s"),
     "looking_up_long": ("Please keep your eyes on the screen.", "low", "gaze", "up_warn_s"),
 }
@@ -94,6 +99,48 @@ class SessionMonitor:
         self._last_issue_t = 0.0
         self._last_t = None
         self._typing = False
+        self.screen_info: dict | None = None
+        self.screen_fit: dict | None = None
+        self.autofit = False
+        self._fit_t0 = None
+        self._fit_samples: list[tuple] = []
+        self._fit_dist: list[float] = []
+
+    # ---------- automatic screen fit (replaces calibration dots) ----------
+    def set_screen(self, info: dict):
+        """Browser reports its screen size; build the screen area from it, refine it over the first seconds."""
+        def num(k, lo, hi, default):
+            try:
+                return min(max(float(info.get(k, default)), lo), hi)
+            except (TypeError, ValueError):
+                return default
+        self.screen_info = {"w": num("w", 320, 8192, 1920), "h": num("h", 240, 8192, 1080), "dpr": num("dpr", 0.5, 4, 1)}
+        self.box = estimate_box(self.screen_info, self.cfg.default_distance_m, eye_per_deg=self.cfg.eye_per_deg,
+                                eye_margin=self.cfg.eye_margin, head_tol=self.cfg.head_tol_deg)
+        self.screen_fit = {**self.screen_info, "status": "estimated"}
+        self.autofit, self._fit_t0, self._fit_samples, self._fit_dist = True, None, [], []
+
+    def _autofit_add(self, now: float, face, f):
+        if self._fit_t0 is None:
+            self._fit_t0 = now
+        # only frames that look like 'on screen' under the size-based estimate teach the fit (ignores glances away)
+        if f.blink <= self.cfg.blink_t and classify_zone(f, self.box) == "screen":
+            self._fit_samples.append((f.h, f.v, f.yaw, f.pitch))
+            self._fit_dist.append(estimate_distance_m(float(face[:, 0].max() - face[:, 0].min()), self.cfg.cam_hfov_deg))
+        elapsed = now - self._fit_t0
+        if elapsed >= 2 * self.cfg.autofit_s or (elapsed >= self.cfg.autofit_s and len(self._fit_samples) >= 5):
+            self._autofit_finish()            # enough clear frames, or give up waiting after twice the learning time
+
+    def _autofit_finish(self):
+        self.autofit = False
+        if len(self._fit_samples) < 5:                 # not enough clear frames: keep the size-based estimate
+            return
+        center = tuple(statistics.median(c) for c in zip(*self._fit_samples))
+        dist = statistics.median(self._fit_dist)
+        self.box = estimate_box(self.screen_info, dist, center, eye_per_deg=self.cfg.eye_per_deg,
+                                eye_margin=self.cfg.eye_margin, head_tol=self.cfg.head_tol_deg)
+        self.screen_fit.update(status="fitted", distance_m=round(dist, 2), center=[round(c, 3) for c in center])
+        self._fit_samples, self._fit_dist = [], []
 
     # ---------- calibration ----------
     def calibration_start(self):
@@ -141,7 +188,10 @@ class SessionMonitor:
             if self.calibrating:
                 self.calib.add(self.calib_point, feats)
             else:
-                zone = classify_zone(feats, self.box)
+                if self.autofit:
+                    self._autofit_add(now, faces[0], feats)
+                # while the screen position is being learned (first seconds) gaze is not judged
+                zone = "screen" if self.autofit else classify_zone(feats, self.box)
         if self.calibrating:
             return self._status(state, None, feats)
 
@@ -187,7 +237,8 @@ class SessionMonitor:
         out = {"type": "status", "face_state": state, "zone": zone, "issue": self.issue,
                "warning": self.warning_active, "typing": self._typing,
                "message": ISSUES[self.issue][0] if self.warning_active else None,
-               "calibrating": self.calibrating, "calibrated": self.calibrated}
+               "calibrating": self.calibrating, "calibrated": self.calibrated,
+               "fitting": self.autofit, "screen_fit": self.screen_fit}
         if feats:
             out["debug"] = {k: round(v, 3) for k, v in vars(feats).items()}
         return out
@@ -229,7 +280,8 @@ class SessionMonitor:
                 e["end_iso"] = (started_at + timedelta(seconds=e["end"])).isoformat(timespec="milliseconds")
         score = min(100, round(score))
         return {"duration_s": round(now, 1), "frames_analyzed": self.frames, "calibrated": self.calibrated,
-                "screen_box": self.box.asdict() if self.calibrated else None,
+                "screen_box": self.box.asdict() if (self.calibrated or self.screen_fit) else None,
+                "screen_fit": self.screen_fit,
                 "input_activity": self.activity, "typing_seconds": round(self.typing_s, 1),
                 "thinking_seconds": round(self.thinking_s, 1),
                 "warning_count": len(events), "count_by_type": count, "seconds_by_type": by_type,

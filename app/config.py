@@ -35,6 +35,12 @@ BLINK_T = _f("BLINK_T", 0.5)              # frames with eyes this closed are ign
 HEAD_PITCH_SIGN = _f("HEAD_PITCH_SIGN", 1)    # set to -1 if "looking down" is reported as "up" in ?debug=1
 DARK_T = _f("DARK_T", 30)                 # mean brightness (0-255) below which a missing face = camera blocked
 
+# ---- automatic screen fit (no calibration dots) ---------------------------------------------
+AUTOFIT_S = _f("AUTOFIT_S", 6)                    # seconds at the start used to learn the candidate's screen position
+DEFAULT_DISTANCE_M = _f("DEFAULT_DISTANCE_M", 0.55)   # assumed camera-to-face distance until it is measured
+CAM_HFOV_DEG = _f("CAM_HFOV_DEG", 65)             # typical laptop/webcam horizontal field of view
+EYE_PER_DEG = _f("EYE_PER_DEG", 0.012)            # eye-look blendshape change per degree of eye rotation (approximation)
+
 # ---- evidence clips ---------------------------------------------------------------
 CLIP_PAD_BEFORE_S = _f("CLIP_PAD_BEFORE_S", 3)
 CLIP_PAD_AFTER_S = _f("CLIP_PAD_AFTER_S", 3)
@@ -47,4 +53,6 @@ def settings():
     return Settings(face_warn_s=FACE_WARN_S, away_warn_s=AWAY_WARN_S, down_warn_s=DOWN_WARN_S,
                     up_warn_s=UP_WARN_S, activity_window_s=ACTIVITY_WINDOW_S, clear_frames=CLEAR_FRAMES,
                     eye_margin=EYE_MARGIN, eye_margin_pct=EYE_MARGIN_PCT, head_tol_deg=HEAD_TOL_DEG,
-                    blink_t=BLINK_T, pitch_sign=HEAD_PITCH_SIGN, dark_t=DARK_T)
+                    blink_t=BLINK_T, pitch_sign=HEAD_PITCH_SIGN, dark_t=DARK_T,
+                    autofit_s=AUTOFIT_S, default_distance_m=DEFAULT_DISTANCE_M, cam_hfov_deg=CAM_HFOV_DEG,
+                    eye_per_deg=EYE_PER_DEG)
