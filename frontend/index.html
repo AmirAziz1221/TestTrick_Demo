@@ -54,11 +54,7 @@ video{width:100%;height:100%;object-fit:cover;transform:scaleX(-1);display:block
 #pip.warn .pd{background:var(--warn)}#pip.cal .pd{background:#e0a020}
 #dbg{display:grid;grid-template-columns:1fr auto;gap:4px 12px;margin-top:10px;padding-top:10px;border-top:1px solid var(--line);font-size:13px;color:var(--muted)}
 #dbg b{color:var(--ink);font-variant-numeric:tabular-nums;text-align:right}
-/* calibration + overlays */
-#calib{position:fixed;inset:0;z-index:80;background:var(--stage);color:#fff}
-#dot{position:absolute;left:50%;top:50%;width:34px;height:34px;margin:-17px 0 0 -17px;border-radius:50%;background:#ffd45c;box-shadow:0 0 0 10px rgba(255,212,92,.25);transition:left .5s,top .5s}
-#calMsg{position:absolute;left:0;right:0;top:50%;transform:translateY(60px);text-align:center;font-size:18px;font-weight:600;padding:0 24px;pointer-events:none}
-#calBtn{position:absolute;left:50%;top:60%;transform:translateX(-50%)}
+/* overlays */
 .gate{position:fixed;inset:0;z-index:100;background:rgba(14,21,38,.92);display:grid;place-items:center;padding:24px}.gate .card{max-width:460px;text-align:center}
 /* result */
 #result{max-width:780px;margin:0 auto;padding:40px 24px}
@@ -79,7 +75,7 @@ table{width:100%;border-collapse:collapse;font-size:14px}th,td{text-align:left;p
     <ul class="checks">
       <li><i>1</i>Sit in a well-lit spot, face the camera, and stay on your own.</li>
       <li><i>2</i>Keep your eyes on the screen. Typing while looking at the keyboard is fine.</li>
-      <li><i>3</i>You will follow a dot for about 20 seconds so we can learn where your screen is.</li>
+      <li><i>3</i>Nothing to set up: we measure your screen automatically. Keep your eyes inside the screen while you answer.</li>
     </ul>
     <label class="consent"><input type="checkbox" id="consent"><span>I agree that my <b>camera and screen are recorded</b> during this test. Only the short clips around flagged moments are reviewed by the hiring team.</span></label>
     <div class="stack">
@@ -99,7 +95,6 @@ table{width:100%;border-collapse:collapse;font-size:14px}th,td{text-align:left;p
   <div id="pip"><div class="frame" id="pipHome"></div><div id="pipInfo"><div id="pipStatus"><i class="pd"></i><span id="pipTxt">Starting camera check…</span></div><div id="dbg" hidden></div></div></div>
 </div>
 
-<div id="calib" hidden><div id="dot"></div><div id="calMsg"></div><button class="btn" id="calBtn" hidden>Try calibration again</button></div>
 <div class="gate" id="gate" hidden><div class="card"><h1 style="margin-top:0">Please return to full screen</h1><p class="sub">The test must stay in full screen. Your timer is still running.</p><button class="btn full" id="gateBtn">Return to full screen</button></div></div>
 <div class="gate" id="wait" hidden><div class="card"><h1 style="margin-top:0">Saving your test…</h1><p class="sub">Uploading the recordings. Please keep this window open.</p></div></div>
 
@@ -121,8 +116,7 @@ const QUESTIONS = [
   {q:"Which CSS property changes the space outside an element's border?", o:["padding","margin","gap","outline"]},
   {q:"In JavaScript, which keyword declares a block-scoped variable?", o:["var","let","function","static"]}];
 const LABEL = {absent:"Face not visible",partial:"Face partly visible",multiple:"More than one person",camera_blocked:"Camera blocked",looking_away:"Looking away",looking_down_no_input:"Looking down, no typing",looking_up_long:"Looking up for long",fullscreen_exit:"Left full screen",tab_hidden:"Left test window",screen_share_stopped:"Screen sharing stopped",multiple_monitors:"Several monitors",paste:"Paste",copy:"Copy",right_click:"Right-click"};
-const CAL = [[50,50],[10,12],[90,12],[90,88],[10,88],[50,88],[50,12]];   // dots the candidate follows
-let ws, sid, stream, scrStream, camRec, scrRec, sendTimer, clock, calibDone, t0perf, inflight = false, running = false, finished = false, idx = 0, answers = [], remaining = 600;
+let ws, sid, stream, scrStream, camRec, scrRec, sendTimer, clock, t0perf, inflight = false, running = false, finished = false, idx = 0, answers = [], remaining = 600;
 const send = o => ws && ws.readyState === 1 && ws.send(JSON.stringify(o));
 const evt = (type, state = "instant") => running && send({t:"evt", type, state});
 
@@ -151,11 +145,13 @@ $("startBtn").onclick = async () => {
   sid = (await r.json()).session_id; t0perf = performance.now();
   camRec = record(stream, "camera", 700000); scrRec = record(scrStream, "screen", 1500000);
   ws = new WebSocket(`${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/ws/${sid}`);
-  ws.onmessage = e => { const d = JSON.parse(e.data); if (d.type === "calibration") calibDone && calibDone(d); else { inflight = false; render(d); } };
-  ws.onopen = async () => {
+  ws.onmessage = e => { inflight = false; render(JSON.parse(e.data)); };
+  ws.onopen = () => {
     $("setup").hidden = true; $("exam").hidden = false; $("pipHome").appendChild($("cam")); $("cam").play();
     if (window.screen.isExtended) send({t:"evt", type:"multiple_monitors"});
-    await calibrate();
+    // the server builds the "eyes on screen" area from THIS device's screen size (no calibration dots)
+    send({t:"screen_info", w: window.screen.width, h: window.screen.height, dpr: window.devicePixelRatio || 1});
+    sendTimer = setInterval(sendFrame, 700);
     running = true; showQuestion(); clock = setInterval(tick, 1000);
   };
 };
@@ -176,24 +172,6 @@ function record(src, kind, bps) {
   return {stop: () => new Promise(res => { rec.onstop = () => chain.then(res); rec.state !== "inactive" ? rec.stop() : res(); })};
 }
 
-/* ---- calibration: follow 7 dots so the server learns what "looking at the screen" means for this person ---- */
-async function calibrate() {
-  const dot = $("dot"); $("calib").hidden = false;
-  while (true) {
-    $("calBtn").hidden = true; dot.style.left = "50%"; dot.style.top = "50%";
-    $("calMsg").textContent = "Get ready: follow the dot with your eyes and keep your head still."; await sleep(2500);
-    clearInterval(sendTimer); sendTimer = setInterval(sendFrame, 300); send({t:"calib_start"});
-    for (let i = 0; i < CAL.length; i++) {
-      dot.style.left = CAL[i][0] + "%"; dot.style.top = CAL[i][1] + "%";
-      $("calMsg").textContent = `Follow the dot (${i + 1}/${CAL.length})`; send({t:"calib_point", i}); await sleep(2400);
-    }
-    const res = await new Promise(r => { calibDone = r; send({t:"calib_end"}); });
-    clearInterval(sendTimer); sendTimer = setInterval(sendFrame, 700);
-    if (res.ok) { $("calib").hidden = true; return; }
-    $("calMsg").textContent = res.message; $("calBtn").hidden = false; await new Promise(r => $("calBtn").onclick = r);
-  }
-}
-
 function sendFrame() {
   if (!ws || ws.readyState !== 1 || inflight) return;     // drop frames if the server is behind
   const v = $("cam"); if (!v.videoWidth) return;
@@ -207,10 +185,10 @@ function render(d) {
   if (d.type === "error") return;
   const bar = $("warnBar"), ex = $("exam"), pip = $("pip");
   if (d.warning) { $("warnTxt").textContent = d.message; bar.classList.add("show"); ex.classList.add("warn"); pip.className = "warn"; $("pipTxt").textContent = LABEL[d.issue] || "Warning"; }
-  else { bar.classList.remove("show"); ex.classList.remove("warn"); pip.className = ""; $("pipTxt").textContent = d.typing ? "Typing detected" : "Camera check OK"; }
+  else { bar.classList.remove("show"); ex.classList.remove("warn"); pip.className = d.fitting ? "cal" : ""; $("pipTxt").textContent = d.fitting ? "Fitting to your screen…" : (d.typing ? "Typing detected" : "Camera check OK"); }
   const x = d.debug; $("dbg").hidden = !(DEBUG && x);
   if (DEBUG && x) $("dbg").innerHTML = [["Looking", (ZONE[d.zone] || "-") + (d.typing ? " + typing" : "")], ["Eyes sideways", x.h.toFixed(2)], ["Eyes down", x.v.toFixed(2)],
-    ["Head turn", x.yaw.toFixed(1) + "°"], ["Head tilt", x.pitch.toFixed(1) + "°"], ["Server time", d.inference_ms + " ms"]].map(([a, b]) => `<span>${a}</span><b>${b}</b>`).join("");
+    ["Head turn", x.yaw.toFixed(1) + "°"], ["Head tilt", x.pitch.toFixed(1) + "°"], ["Screen", d.screen_fit ? `${d.screen_fit.w}×${d.screen_fit.h} ${d.screen_fit.status}` : "-"], ["Server time", d.inference_ms + " ms"]].map(([a, b]) => `<span>${a}</span><b>${b}</b>`).join("");
 }
 
 /* ---- keyboard / mouse activity (only THAT something happened is sent, never which key) ---- */
