@@ -133,3 +133,6 @@ tests/           logic tests (no camera needed)
 - This tool flags suspicious moments for a human reviewer. It does not decide on cheating by itself.
 - Candidates must give consent before the camera and screen are recorded; keep recordings only as long
   as needed (`RETENTION_DAYS`).
+
+
+  
